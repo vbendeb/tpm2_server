@@ -1,0 +1,77 @@
+#!/bin/bash
+
+TCG_ROOT="${TCG_ROOT:-"$(readlink -f "$(dirname $0)"/../build/test-tpm2)"}"
+last_success='.last_success'
+
+if [ -f "${last_success}" ]; then
+  skip=1
+  until="$(cat "${last_success}")"
+fi
+
+# List of tests which are known to fail on the simulator (none at this time).
+excludes='noncence'
+
+if [ "${1}" == '-h' ]; then
+  cat <<EOF
+
+    This script helps to run TCG compliance test suite tests.
+
+    When invoked without command line parameters it discovers the list of
+    tests available from the suite and starts executing them one by one.
+
+    Local file named '.last_success' is used to keep track of tests which
+    succeeded so far. Each time a test passes, its name is saved in the file.
+    When this script is restarted, it skips all tests up to the one contained
+    in ./.last_success. This helps to start running from the spot where the
+    previous attempt failed. Remove ./.last_success file to have the script to
+    start over from the first test.
+
+    By default, if a test fails, the script re-runs the test, this time
+    allowing its console output to be visible, then prints out the command
+    line used to invoke the failing test (so that it can be re-run manually),
+    and then stops.
+
+    If -a is passed as the first command line argument, the script does not
+    stop at failures and continues to run through the entire set of tests,
+    reporting their success of failure.
+
+EOF
+
+  exit 0
+fi
+
+COMPLIANCE="${TCG_ROOT}/install/bin/compliance"
+count=0
+for t in $("${COMPLIANCE}" --list | awk '/Test / {print $2}'); do
+  echo -n "$t "
+  if echo $t  | egrep -qv "(${excludes})"; then
+    count=$(expr $count + 1)
+    if [ "${skip}" == "1" ]; then
+      if [ "$t" == "${until}" ]; then
+        skip=0
+      fi
+      echo 'skipped'
+      continue
+    fi
+    if ! "${COMPLIANCE}" -s $t --ntpm localhost:9883 | egrep -q 'Passed Tests:.*1'; then
+      echo failed
+      if [ "$1" == "-a" ]; then
+        count=$(expr $count - 1)
+        continue
+      fi
+      eval "${COMPLIANCE} -s $t --ntpm localhost:9883"
+      echo
+      echo $count passed
+      echo "Ran this to reproduce the failure:"
+      echo "${COMPLIANCE} -s $t --ntpm localhost:9883"
+      break
+    else
+      echo passed
+      echo "$t" > "${last_success}"
+    fi
+  else
+    echo 'excluded'
+    continue
+  fi
+done
+echo "${count} tests passed"
