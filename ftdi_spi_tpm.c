@@ -194,7 +194,7 @@ int FtdiSpiInit(uint32_t freq, int enable_debug) {
   // Try claiming locality zero.
   FtdiReadReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
   // tpmEstablishment can be either set or not.
-  if ((cmd & ~tpmEstablishment) != tpmRegValidSts) {
+  if ((cmd & ~(tpmEstablishment | activeLocality)) != tpmRegValidSts) {
     fprintf(stderr, "invalid reset status: %#x\n", cmd);
     return false;
   }
