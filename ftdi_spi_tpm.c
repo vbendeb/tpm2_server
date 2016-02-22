@@ -213,6 +213,16 @@ int FtdiSpiInit(uint32_t freq, int enable_debug) {
 
   // Try claiming locality zero.
   FtdiReadReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
+  if ((cmd & (activeLocality & tpmRegValidSts)) ==
+      (activeLocality & tpmRegValidSts)) {
+    /*
+     * Locality active - maybe reset line is not connected?
+     * Release the locality and try again
+     */
+    cmd = activeLocality;
+    FtdiWriteReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
+    FtdiReadReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
+  }
   // tpmEstablishment can be either set or not.
   if ((cmd & ~(tpmEstablishment | activeLocality)) != tpmRegValidSts) {
     fprintf(stderr, "invalid reset status: %#x\n", cmd);
