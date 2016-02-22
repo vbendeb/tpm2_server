@@ -19,9 +19,14 @@
 
 #include "support.h"
 
+static struct mpsse_context* OpenIndex(int vid, int pid, enum modes mode,
+                                       int freq, int endianess, int interface,
+                                       const char* description,
+                                       const char* serial, int index);
+
 /* List of known FT2232-based devices */
 struct vid_pid supported_devices[] = {
-    {0x0403, 0x6010, "FT2232 Future Technology Devices International, Ltd"},
+    {0x0403, 0x6010, "FT2232 Future Technology Devices International, Ltd", 1},
     {0x0403, 0x6011, "FT4232 Future Technology Devices International, Ltd"},
     {0x0403, 0x6014, "FT232H Future Technology Devices International, Ltd"},
 
@@ -50,8 +55,10 @@ struct mpsse_context* MPSSE(enum modes mode, int freq, int endianess) {
   struct mpsse_context* mpsse = NULL;
 
   for (i = 0; supported_devices[i].vid != 0; i++) {
-    mpsse = Open(supported_devices[i].vid, supported_devices[i].pid, mode,
-                 freq, endianess, IFACE_A, NULL, NULL);
+    mpsse = OpenIndex(supported_devices[i].vid, supported_devices[i].pid, mode,
+                      freq, endianess, supported_devices[i].use_B ?
+                        IFACE_B : IFACE_A,
+                      NULL, NULL, 0);
     if (mpsse) {
       mpsse->description = supported_devices[i].description;
       return mpsse;
@@ -59,32 +66,6 @@ struct mpsse_context* MPSSE(enum modes mode, int freq, int endianess) {
   }
 
   return NULL;
-}
-
-/*
- * Open device by VID/PID
- *
- * @vid         - Device vendor ID.
- * @pid         - Device product ID.
- * @mode        - MPSSE mode, one of enum modes.
- * @freq        - Clock frequency to use for the specified mode.
- * @endianess   - Specifies how data is clocked in/out (MSB, LSB).
- * @interface   - FTDI interface to use (IFACE_A - IFACE_D).
- * @description - Device product description (set to NULL if not needed).
- * @serial      - Device serial number (set to NULL if not needed).
- *
- * Returns a pointer to an MPSSE context structure on success.
- */
-struct mpsse_context* Open(int vid,
-                           int pid,
-                           enum modes mode,
-                           int freq,
-                           int endianess,
-                           int interface,
-                           const char* description,
-                           const char* serial) {
-  return OpenIndex(vid, pid, mode, freq, endianess, interface, description,
-                   serial, 0);
 }
 
 /*
@@ -104,15 +85,15 @@ struct mpsse_context* Open(int vid,
  * On success, mpsse->open will be set to 1.
  * On failure, mpsse->open will be set to 0.
  */
-struct mpsse_context* OpenIndex(int vid,
-                                int pid,
-                                enum modes mode,
-                                int freq,
-                                int endianess,
-                                int interface,
-                                const char* description,
-                                const char* serial,
-                                int index) {
+static struct mpsse_context* OpenIndex(int vid,
+                                       int pid,
+                                       enum modes mode,
+                                       int freq,
+                                       int endianess,
+                                       int interface,
+                                       const char* description,
+                                       const char* serial,
+                                       int index) {
   int status = 0;
   struct mpsse_context* mpsse = NULL;
 
