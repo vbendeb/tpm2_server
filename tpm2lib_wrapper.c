@@ -36,7 +36,7 @@ static void dump_message(const char *prefix,
   if (length != message_size)
     printf(" message size %zd", message_size);
   for (i = 0; i < message_size; i++) {
-    if (!(i % 32))
+    if (!(i % BYTES_PER_LINE))
       printf("\n");
     printf(" %2.2x", message[i]);
   }
@@ -78,7 +78,7 @@ size_t Tpm2LibProcess(uint8_t *message, size_t message_size)
   void *response;
   unsigned response_size;
 
-  dump_message(" Command", message, message_size);
+  dump_message("Command", message, message_size);
   ExecuteCommand(message_size, message, &response_size, (uint8_t **)&response);
   memset(message, 0xaa, 4096);
   memcpy(message, response, response_size);

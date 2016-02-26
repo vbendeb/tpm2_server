@@ -25,7 +25,7 @@ static struct tpm_driver {
 
 const static char *help_msg =
   " Command line options:\n"
-  "  -d        - enable debug tracing\n"
+  "  -d[d]     - enable debug tracing (more d's - more debug)\n"
   "  -f NUM    - ftdi clock frequency\n"
   "  -p NUM    - port number\n"
   "  -s        - use simulator instead of the USB interface\n";
@@ -39,13 +39,15 @@ int main( int argc, char *argv[] )
   uint16_t port = 9883; /* default port */
   uint32_t freq = 1000 * 1000; /* Default frequency 1 MHz */
   int driver_index = 0;
-  int enable_debug = 0;
+  int debug_level = 0;
   int c;
+
+  debug_level = 0;
 
   while ((c = getopt(argc, argv, "df:p:s")) != -1) {
     switch (c) {
     case 'd':
-      enable_debug = 1;
+      debug_level++;
       break;
     case 'f':
       freq = atoi(optarg);
@@ -95,7 +97,7 @@ int main( int argc, char *argv[] )
     return -1;
   }
 
-  if (!drivers[driver_index].drv_init(freq, enable_debug)) {
+  if (!drivers[driver_index].drv_init(freq, debug_level)) {
     fprintf(stderr, "Failed to initialize FTDI SPI\n");
     return -1;
   }
@@ -106,7 +108,7 @@ int main( int argc, char *argv[] )
     int len;
     int newsockfd;
 
-    printf("Waiting for new connection...");
+    printf("\nWaiting for new connection...");
     fflush(stdout);
     newsockfd = accept(sockfd, 0, 0);
     if (newsockfd == SOCKET_ERROR) {

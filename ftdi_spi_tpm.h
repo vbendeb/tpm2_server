@@ -5,6 +5,7 @@
 #ifndef TRUNKS_TRUNKS_FTDI_SPI_H_
 #define TRUNKS_TRUNKS_FTDI_SPI_H_
 
+#include "config.h"
 #include "mpsse.h"
 
 typedef enum {

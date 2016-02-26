@@ -8,7 +8,7 @@
 
 static  struct mpsse_context* mpsse_;
 static  unsigned locality_;   // Set at initialization.
-static int ftdi_trace_enabled;
+static int debug_level;
 
 // Assorted TPM2 registers for interface type FIFO.
 #define TPM_ACCESS_REG       0
@@ -100,16 +100,35 @@ static void StartTransaction(int read_write, size_t bytes, unsigned addr)
 
 static void trace_dump(const char *prefix, unsigned reg, size_t bytes, const uint8_t *buffer)
 {
-  if (!ftdi_trace_enabled)
+  static char prev_prefix;
+  static unsigned prev_reg;
+  static int current_line;
+
+  if (!debug_level)
     return;
-  printf("%s %2.2x:", prefix, reg);
-  if (bytes == 4) {
-    printf(" %8.8x\n", *(const uint32_t*) buffer);
+
+  if ((debug_level < 2) && (reg != 0x24))
+    return;
+
+  if ((prev_prefix != *prefix) || (prev_reg != reg)) {
+    prev_prefix = *prefix;
+    prev_reg = reg;
+    printf("\n%s %2.2x:", prefix, reg);
+    current_line = 0;
+  }
+
+  if ((reg != 0x24) && (bytes == 4)) {
+    printf(" %8.8x", *(const uint32_t*) buffer);
   } else {
     int i;
-    for (i = 0; i < bytes; i++)
+    for (i = 0; i < bytes; i++) {
+      if (current_line && !(current_line % BYTES_PER_LINE)) {
+        printf("\n     ");
+        current_line = 0;
+      }
+      current_line++;
       printf(" %2.2x", buffer[i]);
-    printf("\n");
+    }
   }
 }
 
@@ -168,7 +187,7 @@ int FtdiSpiInit(uint32_t freq, int enable_debug) {
   if (mpsse_)
     return true;
 
-  ftdi_trace_enabled = enable_debug;
+  debug_level = enable_debug;
 
   /* round frequency down to the closest 100KHz */
   freq = (freq /(100 * 1000)) * 100 * 1000;
@@ -240,7 +259,7 @@ static int WaitForStatus(uint32_t statusMask, uint32_t statusExpected)
   target_time = MAX_STATUS_TIMEOUT - target_time + time(NULL);
   if (max_timeout < (unsigned)target_time) {
     max_timeout = target_time;
-    printf("New max timeout: %d s\n", max_timeout);
+    printf("\nNew max timeout: %d s\n", max_timeout);
   }
 
   return true;
@@ -336,9 +355,7 @@ size_t FtdiSendCommandAndWait(uint8_t *tpm_command, size_t command_size)
   memcpy(&payload_size, tpm_command + 2, sizeof(payload_size));
   payload_size = be32toh(payload_size);
 
-  if (ftdi_trace_enabled)
-    printf("%s response size %d\n\n", message, payload_size);
-  else
+  if (!debug_level)
     SpinSpinner();
 
   if (payload_size > MAX_RESPONSE_SIZE)
