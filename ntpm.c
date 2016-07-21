@@ -119,6 +119,8 @@ int main( int argc, char *argv[] )
     printf("connected.\n");
 
     do {
+      int written = 0;
+
       len = recv(newsockfd, (char*) buffer, sizeof(buffer), 0);
 
       if ( len == SOCKET_ERROR ) {
@@ -134,9 +136,12 @@ int main( int argc, char *argv[] )
       len = drivers[driver_index].drv_process(buffer, len);
 
       // write result to network
-      len = send(newsockfd, buffer, len, 0);
-      if (len == SOCKET_ERROR )
-        fprintf(stderr, "ERROR writing to socket (%s)\n", strerror(errno));
+      while (written != len) {
+       int count = send(newsockfd, buffer + written, len - written, 0);
+       if (count == SOCKET_ERROR )
+         fprintf(stderr, "ERROR writing to socket (%s)\n", strerror(errno));
+       written += count;
+      }
     } while ( len > 0 );
     shutdown(newsockfd, SHUT_RDWR);
   }
