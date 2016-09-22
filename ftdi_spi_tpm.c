@@ -11,13 +11,13 @@ static  unsigned locality_;   // Set at initialization.
 static int debug_level;
 
 // Assorted TPM2 registers for interface type FIFO.
-#define TPM_REG_BASE	 0xd40000
-#define TPM_ACCESS_REG    (TPM_REG_BASE + 0)
-#define TPM_STS_REG       (TPM_REG_BASE + 0x18)
-#define TPM_DATA_FIFO_REG (TPM_REG_BASE + 0x24)
-#define TPM_DID_VID_REG   (TPM_REG_BASE + 0xf00)
-#define TPM_RID_REG       (TPM_REG_BASE + 0xf04)
+#define TPM_REG_BASE	0xd40000
 
+#define TPM_ACCESS_REG    	(TPM_REG_BASE + locality_ * 0x1000 + 0x0)
+#define TPM_STS_REG       	(TPM_REG_BASE + locality_ * 0x1000 + 0x18)
+#define TPM_DATA_FIFO_REG 	(TPM_REG_BASE + locality_ * 0x1000 + 0x24)
+#define TPM_DID_VID_REG   	(TPM_REG_BASE + locality_ * 0x1000 + 0xf00)
+#define TPM_RID_REG       	(TPM_REG_BASE + locality_ * 0x1000 + 0xf04)
 
 // Locality management bits (in TPM_ACCESS_REG)
 enum TpmAccessBits {
@@ -108,7 +108,7 @@ static void trace_dump(const char *prefix, unsigned reg, size_t bytes, const uin
   if (!debug_level)
     return;
 
-  if ((debug_level < 2) && (reg != 0x24))
+  if ((debug_level < 2) && (reg != TPM_DATA_FIFO_REG))
     return;
 
   if ((prev_prefix != *prefix) || (prev_reg != reg)) {
@@ -118,7 +118,7 @@ static void trace_dump(const char *prefix, unsigned reg, size_t bytes, const uin
     current_line = 0;
   }
 
-  if ((reg != 0x24) && (bytes == 4)) {
+  if ((reg != TPM_DATA_FIFO_REG) && (bytes == 4)) {
     printf(" %8.8x", *(const uint32_t*) buffer);
   } else {
     int i;
@@ -139,7 +139,7 @@ static int FtdiWriteReg(unsigned reg_number, size_t bytes, const void *buffer)
     return false;
 
   trace_dump("W", reg_number, bytes, buffer);
-  StartTransaction(false, bytes, reg_number + locality_ * 0x10000);
+  StartTransaction(false, bytes, reg_number);
   Write(mpsse_, buffer, bytes);
   Stop(mpsse_);
   return true;
@@ -152,7 +152,7 @@ static int FtdiReadReg(unsigned reg_number, size_t bytes, void *buffer)
   if (!mpsse_)
     return false;
 
-  StartTransaction(true, bytes, reg_number + locality_ * 0x10000);
+  StartTransaction(true, bytes, reg_number);
   value = Read(mpsse_, bytes);
   if (buffer)
     memcpy(buffer, value, bytes);
